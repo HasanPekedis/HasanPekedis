@@ -1,3 +1,9 @@
 - 👋 Hi, I’m @HasanPekedis
 
-- 📫 How to reach me hasanpekedis@marun.edu.tr
+- 🏢 From Marmara University Computer Engineering
+
+- 🖥️ Enjoy coding
+
+- 📫 How to reach me hasanpekedis365@hotmail.com
+
+- 🧿 My Personal Website: 
