@@ -4,6 +4,7 @@
 
 - 🖥️ Enjoy coding
 
-- 📫 How to reach me hasanpekedis365@hotmail.com
+- 📫 How to reach me: hasanpekedis365@hotmail.com
 
-- 🧿 My Personal Website: 
+- 🧿 My Personal Website: hasanpekedis.github.io
+ 
