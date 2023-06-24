@@ -6,4 +6,4 @@
 
 - 📫 How to reach me: hasanpekedis365@hotmail.com
 
-- 🧿 My Personal Website: https://hasanpekedis.github.io/ 
+- 🧿 My Personal Website: hasanpekedis.github.io/ 
