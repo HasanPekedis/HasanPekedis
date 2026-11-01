@@ -9,5 +9,5 @@
 - 🧿 My Personal Website: https://hasanpekedis.github.io/
 
 <p align="center">
-  <img src="koi/koi.gif" width="384" alt="My koi" />
+  <img src="koi/koi.gif" width="256" alt="My koi" />
 </p>

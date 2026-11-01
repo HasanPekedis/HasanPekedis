@@ -13,23 +13,52 @@ permissions:
 
 concurrency: koi
 
+env:
+  KOI_VERSION: "1.0.2"
+
 jobs:
   koi:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: yalongwastaken/git-koi@v1.0.2
-        with:
-          body: white
-          output-dir: koi
+
+      # git-koi collect -> render, run by hand instead of through its Action so the
+      # snapshot can be nudged before rendering. Pinned release + checksum check.
+      - name: Install git-koi
+        run: |
+          set -euo pipefail
+          base="https://github.com/yalongwastaken/git-koi/releases/download/v${KOI_VERSION}"
+          asset="git-koi-${KOI_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL -o "$asset" "$base/$asset"
+          curl -fsSL -o "$asset.sha256" "$base/$asset.sha256"
+          sha256sum -c "$asset.sha256"
+          tar xzf "$asset"
+          install -m 0755 "git-koi-${KOI_VERSION}-x86_64-unknown-linux-musl/git-koi" /usr/local/bin/git-koi
+          git-koi --version
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Orange coat and room to swim
+
+      - name: Collect the account snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: git-koi collect "${{ github.repository_owner }}" --output snapshot.json
+
+      # An account with no contributions renders a deep-resting koi that never travels.
+      # This marks the trailing two weeks active so git-koi's own lap animation runs.
+      - name: Wake the koi
+        run: python3 tools/wake.py snapshot.json
+
+      - name: Render the koi
+        run: git-koi render snapshot.json --output-dir koi --body white
+
+      - name: Orange coat
         run: |
           python -m pip install --quiet pillow
-          python tools/koi_extras.py koi/koi.gif koi/koi.tmp.gif
+          python tools/recolor.py koi/koi.gif koi/koi.tmp.gif
           mv koi/koi.tmp.gif koi/koi.gif
+
       - name: Commit the koi if it changed
         shell: bash
         run: |
