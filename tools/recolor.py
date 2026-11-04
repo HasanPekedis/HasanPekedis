@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Recolor a git-koi GIF to orange / black / white, keeping the transparent ground.
+"""Recolor a git-koi GIF to orange / black / white and size it for any screen.
 
-git-koi colors the coat from the account's language pigments. GitHub language colors
-most often land on the "ai" (blue) pigment, which draws a blue-and-white koi. This pass
-rewrites only pigment pixels:
+Three passes, all deterministic:
 
-  * saturated blue at normal brightness -> the koi's orange (orenji) hue
-  * dark blue (the sumi/black pigment and its shading) -> neutral black
-  * pale blue-white body shading, whites and the transparent background -> untouched
+1. **Recolor** — git-koi colors the coat from the account's language pigments, and
+   GitHub language colors most often land on the "ai" (blue) pigment. Saturated blue at
+   normal brightness becomes the koi's orange (orenji) hue; dark blue (the sumi pigment
+   and its shading) becomes neutral black. Pale body shading, whites and the transparent
+   ground are left alone, and alpha is preserved, so the README shows a fish on the page
+   background instead of in a black box.
+2. **Trim** — crop every frame to the union of all frames' alpha bounding boxes (never
+   frame 0's, or fins get clipped mid-cycle). The koi then fills the frame instead of
+   swimming in dead space, which is what makes it read at phone width.
+3. **Upscale** — nearest-neighbour by an integer factor, so the asset is bigger than the
+   README column and the browser *downscales* it. Downscaling pixel art stays clean;
+   upscaling blurs it. A 2x asset looks crisp on a wide desktop and sharp on a phone.
 
-Alpha is preserved, so the README shows the fish on the page background instead of in a
-black box. The transform is idempotent: an already recolored frame passes through.
-
-    python3 tools/recolor.py IN.gif OUT.gif
+    python3 tools/recolor.py IN.gif OUT.gif [--scale 2] [--no-trim]
 """
+import argparse
 import colorsys
-import sys
 
 from PIL import Image, ImageSequence
 
@@ -53,6 +57,19 @@ def recolor_frame(frame):
     return frame
 
 
+def union_bbox(frames):
+    """Union of the alpha boxes: cropping to frame 0 alone clips fins mid-cycle."""
+    x0 = y0 = 10**9
+    x1 = y1 = -1
+    for f in frames:
+        bb = f.getchannel("A").getbbox()
+        if bb is None:
+            continue
+        x0, y0 = min(x0, bb[0]), min(y0, bb[1])
+        x1, y1 = max(x1, bb[2]), max(y1, bb[3])
+    return x0, y0, x1, y1
+
+
 def save_gif(frames, durations, path, colors=64):
     """Quantize every frame against one palette and keep index 0 transparent."""
     flat = Image.new("RGB", frames[0].size, (0, 0, 0))
@@ -83,14 +100,36 @@ def save_gif(frames, durations, path, colors=64):
 
 
 def main():
-    src, dst = sys.argv[1], sys.argv[2]
-    image = Image.open(src)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("src")
+    ap.add_argument("dst")
+    ap.add_argument("--scale", type=int, default=2,
+                    help="nearest-neighbour factor; the README column downscales it")
+    ap.add_argument("--no-trim", action="store_true")
+    ap.add_argument("--no-recolor", action="store_true")
+    args = ap.parse_args()
+
+    image = Image.open(args.src)
     frames, durations = [], []
     for frame in ImageSequence.Iterator(image):
-        frames.append(recolor_frame(frame.convert("RGBA")))
+        frames.append(frame.convert("RGBA"))
         durations.append(frame.info.get("duration", 70))
-    save_gif(frames, durations, dst)
-    print(f"{dst}: {len(frames)} frames recolored to orange/black/white")
+
+    if not args.no_recolor:
+        frames = [recolor_frame(f) for f in frames]
+
+    if not args.no_trim:
+        box = union_bbox(frames)
+        if box[0] < 10**9:
+            frames = [f.crop(box) for f in frames]
+
+    if args.scale > 1:
+        size = (frames[0].width * args.scale, frames[0].height * args.scale)
+        frames = [f.resize(size, Image.Resampling.NEAREST) for f in frames]
+
+    save_gif(frames, durations, args.dst)
+    w, h = frames[0].size
+    print(f"{args.dst}: {len(frames)} frames at {w}x{h} (x{args.scale})")
 
 
 if __name__ == "__main__":
