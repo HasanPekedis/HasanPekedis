@@ -3,12 +3,13 @@
 
 Three passes, all deterministic:
 
-1. **Recolor** — git-koi colors the coat from the account's language pigments, and
-   GitHub language colors most often land on the "ai" (blue) pigment. Saturated blue at
-   normal brightness becomes the koi's orange (orenji) hue; dark blue (the sumi pigment
-   and its shading) becomes neutral black. Pale body shading, whites and the transparent
-   ground are left alone, and alpha is preserved, so the README shows a fish on the page
-   background instead of in a black box.
+1. **Recolor** — git-koi colors the coat from the account's language pigments: blue (ai),
+   yellow (ki) or red (beni), pale until the account passes 500 contributions. Every
+   pigmented pixel is pulled to the koi's orange (orenji) hue — pale pigments included, so
+   a young account is still orange rather than washed-out blue — and dark pigment becomes
+   neutral black (sumi). Body shading, whites and the transparent ground are left alone,
+   and alpha is preserved, so the README shows a fish on the page background instead of in
+   a black box.
 2. **Trim** — crop every frame to the union of all frames' alpha bounding boxes (never
    frame 0's, or fins get clipped mid-cycle). The koi then fills the frame instead of
    swimming in dead space, which is what makes it read at phone width.
@@ -24,9 +25,12 @@ import colorsys
 from PIL import Image, ImageSequence
 
 ORANGE_HUE = 24.0 / 360.0     # koi ORANGE_RAMP mid tone: #F77622
-HUE_LO, HUE_HI = 0.50, 0.75   # blue .. indigo
-MIN_SAT = 0.40                # below this the pixel is body shading / white: leave
-SUMI_VAL = 0.38               # below this value a blue pixel is the black pigment
+# Any pigment hue is pulled to orange: GitHub language colours give blue (ai),
+# yellow (ki) and red (beni) patches, and a three-colour koi wants them as one.
+SAT_PIGMENT = 0.10            # under this the pixel is body shading / white: leave
+SUMI_VAL = 0.32               # under this value the pigment is the black sumi
+ORANGE_SAT_FLOOR = 0.62       # pale pigments still read as orange
+ORANGE_VAL_FLOOR = 0.60       # and never sink into the background
 SUMI_SCALE = 0.55             # how dark the neutral sumi ends up
 ALPHA_CUTOFF = 128
 
@@ -34,12 +38,13 @@ ALPHA_CUTOFF = 128
 def recolor_pixel(rgb):
     r, g, b = rgb
     h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-    if not (HUE_LO <= h <= HUE_HI) or s < MIN_SAT:
+    if s < SAT_PIGMENT:
         return rgb
     if v < SUMI_VAL:
         gray = min(int(v * 255.0 * SUMI_SCALE + 8), 255)
         return (gray, gray, gray)
-    nr, ng, nb = colorsys.hsv_to_rgb(ORANGE_HUE, s, v)
+    nr, ng, nb = colorsys.hsv_to_rgb(
+        ORANGE_HUE, max(s, ORANGE_SAT_FLOOR), max(v, ORANGE_VAL_FLOOR))
     return (int(nr * 255 + 0.5), int(ng * 255 + 0.5), int(nb * 255 + 0.5))
 
 
